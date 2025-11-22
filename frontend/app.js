@@ -167,8 +167,14 @@ function applyFiltersAndRender() {
   const meta = Object.assign({}, lastData.meta || {});
   meta.detected_unit = meta.detected_unit || 'lb';
   
+  // Recalculate summary stats based on filtered rows
+  const stats = calculateStats(rows, meta);
+  
   // Render the table with filtered data
   renderTable(rows, meta);
+  
+  // Render summary stats
+  renderSummary(stats, meta);
   
   // Render the chart
   renderChart(rows, meta);
@@ -187,6 +193,104 @@ function getISOWeekKey(dateStr) {
   const week = 1 + Math.round(diff / 86400000 / 7);
   const year = target.getFullYear();
   return `${year}-W${String(week).padStart(2, '0')}`;
+}
+
+function calculateStats(rows, meta) {
+  const KCAL_PER_LB = 3500.0;
+  const KCAL_PER_KG = KCAL_PER_LB / 0.45359237;
+  const detectedUnit = (meta && meta.detected_unit) || 'lb';
+  
+  // Calculate overall average calories
+  const validCal = rows.map(r => r.avg_calories).filter(v => v != null && !isNaN(v));
+  const overall_avg_calories = validCal.length ? validCal.reduce((a, b) => a + b, 0) / validCal.length : null;
+  
+  // Linear regression on weight
+  const validWeights = rows.map((r, i) => ({ x: i, y: r.avg_weight })).filter(p => p.y != null && !isNaN(p.y));
+  let slope_in_unit_per_week = null;
+  
+  if (validWeights.length >= 2) {
+    const n = validWeights.length;
+    const sumX = validWeights.reduce((s, p) => s + p.x, 0);
+    const sumY = validWeights.reduce((s, p) => s + p.y, 0);
+    const sumXY = validWeights.reduce((s, p) => s + p.x * p.y, 0);
+    const sumX2 = validWeights.reduce((s, p) => s + p.x * p.x, 0);
+    const denom = (n * sumX2 - sumX * sumX);
+    if (denom !== 0) {
+      slope_in_unit_per_week = (n * sumXY - sumX * sumY) / denom;
+    }
+  }
+  
+  // Convert slope to kg/week for calorie calculations
+  let slope_kg_per_week = null;
+  if (slope_in_unit_per_week != null) {
+    slope_kg_per_week = (detectedUnit === 'lb') ? slope_in_unit_per_week * 0.45359237 : slope_in_unit_per_week;
+  }
+  
+  // Calculate daily calorie change (positive = surplus, negative = deficit)
+  const daily_kcal_change = (slope_kg_per_week != null) ? (slope_kg_per_week * KCAL_PER_KG / 7.0) : null;
+  
+  // Calculate estimated maintenance
+  const estimated_maintenance = (overall_avg_calories != null && daily_kcal_change != null) 
+    ? (overall_avg_calories - daily_kcal_change) 
+    : null;
+  
+  return {
+    overall_avg_calories,
+    estimated_maintenance,
+    daily_kcal_change,
+    slope_in_unit_per_week
+  };
+}
+
+function renderSummary(stats, meta) {
+  const summaryEl = document.getElementById('summaryStats');
+  if (!summaryEl) return;
+  
+  const detectedUnit = (meta && meta.detected_unit) || 'lb';
+  const avgCal = stats.overall_avg_calories != null ? Math.round(stats.overall_avg_calories) : '—';
+  const maintenance = stats.estimated_maintenance != null ? Math.round(stats.estimated_maintenance) : '—';
+  const dailyChange = stats.daily_kcal_change != null ? Math.round(Math.abs(stats.daily_kcal_change)) : '—';
+  const weeklyChange = stats.slope_in_unit_per_week != null ? stats.slope_in_unit_per_week.toFixed(2) : '—';
+  
+  // Determine if surplus or deficit
+  const changeLabel = stats.daily_kcal_change == null ? 'Daily Change' 
+    : stats.daily_kcal_change > 0 ? 'Daily Surplus' 
+    : 'Daily Deficit';
+  
+  const changeColor = stats.daily_kcal_change == null ? 'text-slate-600'
+    : stats.daily_kcal_change > 0 ? 'text-green-600'
+    : 'text-red-600';
+  
+  const weightLabel = stats.slope_in_unit_per_week == null ? 'Weekly Change'
+    : stats.slope_in_unit_per_week > 0 ? 'Weekly Gain'
+    : 'Weekly Loss';
+  
+  const weightColor = stats.slope_in_unit_per_week == null ? 'text-slate-600'
+    : stats.slope_in_unit_per_week > 0 ? 'text-green-600'
+    : 'text-red-600';
+  
+  summaryEl.innerHTML = `
+    <div class="text-center">
+      <div class="text-sm text-slate-600 mb-1">Avg Calories</div>
+      <div class="text-2xl font-bold text-slate-800">${avgCal}</div>
+      <div class="text-xs text-slate-500">kcal/day</div>
+    </div>
+    <div class="text-center">
+      <div class="text-sm text-slate-600 mb-1">Maintenance</div>
+      <div class="text-2xl font-bold text-blue-600">${maintenance}</div>
+      <div class="text-xs text-slate-500">kcal/day</div>
+    </div>
+    <div class="text-center">
+      <div class="text-sm text-slate-600 mb-1">${changeLabel}</div>
+      <div class="text-2xl font-bold ${changeColor}">${dailyChange}</div>
+      <div class="text-xs text-slate-500">kcal/day</div>
+    </div>
+    <div class="text-center">
+      <div class="text-sm text-slate-600 mb-1">${weightLabel}</div>
+      <div class="text-2xl font-bold ${weightColor}">${weeklyChange}</div>
+      <div class="text-xs text-slate-500">${detectedUnit}/week</div>
+    </div>
+  `;
 }
 
 function renderChart(rows, meta) {

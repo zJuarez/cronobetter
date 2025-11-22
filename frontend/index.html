@@ -76,6 +76,15 @@
 
     <!-- Chart Container (shown after successful analysis) -->
     <div id="chartWrapper" class="hidden w-full max-w-6xl">
+      <!-- Summary Stats -->
+      <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
+        <h2 class="text-lg font-semibold text-slate-800 mb-4">Summary</h2>
+        <div id="summaryStats" class="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <!-- Stats will be populated by JavaScript -->
+        </div>
+      </div>
+      
+      <!-- Chart -->
       <div class="bg-white rounded-lg shadow-lg p-6">
         <h2 class="text-lg font-semibold text-slate-800 mb-4">Visual Analysis</h2>
         <div class="h-96">

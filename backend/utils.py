@@ -47,11 +47,7 @@ def _parse_date_col(df):
 
 
 def _find_weight_col(df):
-    for col in df.columns:
-        if 'weight' in col.lower():
-            return col
-    return None
-
+    return "Weight" if "Weight" in df.columns else None
 
 def _find_calories_col(df):
     # Canonical calories column name for this project: 'Energy'
@@ -98,13 +94,14 @@ def compute_weekly_summary(df, unit_override=None):
     df['week'] = df['__date'].dt.isocalendar().week
     df['week_key'] = df['year'].astype(str) + '-W' + df['week'].astype(str).str.zfill(2)
 
+    # For each week compute averages and counts of valid days
     grouped = df.groupby('week_key').agg(
         avg_weight=('__weight', 'mean'),
         avg_calories=('__energy', 'mean'),
         samples=('__date', 'count')
     ).reset_index().sort_values('week_key')
 
-    # week index for regression
+    # week index for regression (after filtering complete weeks)
     grouped['week_index'] = np.arange(len(grouped))
 
     # decide detected unit: force pounds (lbs) per user's instruction
@@ -167,11 +164,16 @@ def compute_weekly_summary(df, unit_override=None):
 
     rows = []
     for _, r in grouped.iterrows():
+        aw = None if pd.isna(r['avg_weight']) else float(r['avg_weight'])
+        ac = None if pd.isna(r['avg_calories']) else float(r['avg_calories'])
+        # Only include weeks that have both weight and calories present and calories >= 1000
+        if aw is None or ac is None or ac < 1000:
+            continue
         rows.append({
             'week': r['week_key'],
-            'avg_weight': None if pd.isna(r['avg_weight']) else float(r['avg_weight']),
-            'avg_weight_unit': None if pd.isna(r['avg_weight']) else float(r['avg_weight']),
-            'avg_calories': None if pd.isna(r['avg_calories']) else float(r['avg_calories']),
+            'avg_weight': aw,
+            'avg_weight_unit': aw,
+            'avg_calories': ac,
             'samples': int(r['samples'])
         })
 

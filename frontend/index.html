@@ -22,26 +22,44 @@
       <label class="block text-sm font-medium text-slate-700">Upload Cronometer CSV(s)</label>
       <input id="fileInput" type="file" accept=".csv" multiple class="mt-2" />
       <div id="fileList" class="mt-2 text-sm text-slate-600"></div>
-      <div class="mt-3 text-sm text-slate-500">Select one or more CSV files (e.g. weight CSV and calories CSV). Fields expected: <code>Date</code>, <code>Weight</code>, or per-macro columns <code>Alcohol</code>, <code>Fat</code>, <code>Carbs</code>, <code>Protein</code></div>
+      <div class="mt-3 text-sm text-slate-500">Select one or more CSV files (e.g. weight CSV and calories CSV). Fields expected: <code>Date</code>, <code>Weight</code>, and per-macro columns <code>Alcohol</code>, <code>Fat</code>, <code>Carbs</code>, <code>Protein</code></div>
+      <div class="mt-3 grid grid-cols-3 gap-2 items-center">
+        <div>
+          <label class="text-sm font-medium text-slate-700">Weight unit</label>
+          <select id="unitSelect" class="ml-2 border rounded p-1 text-sm">
+            <option value="auto">Auto detect</option>
+            <option value="kg">Force kg</option>
+            <option value="lb" selected>Force lb</option>
+          </select>
+        </div>
+        <div>
+          <label class="text-sm font-medium text-slate-700">Start</label>
+          <input id="startDate" type="date" class="ml-2 border rounded p-1 text-sm" />
+        </div>
+        <div>
+          <label class="text-sm font-medium text-slate-700">End</label>
+          <input id="endDate" type="date" class="ml-2 border rounded p-1 text-sm" />
+        </div>
+      </div>
       <div class="mt-3">
-        <label class="text-sm font-medium text-slate-700">Weight unit</label>
-        <select id="unitSelect" class="ml-2 border rounded p-1 text-sm">
-          <option value="auto">Auto detect</option>
-          <option value="kg">Force kg</option>
-          <option value="lb">Force lb</option>
+        <label class="text-sm font-medium text-slate-700">Goal</label>
+        <select id="goalSelect" class="ml-2 border rounded p-1 text-sm">
+          <option value="auto">Auto (detect by trend)</option>
+          <option value="bulk">Bulk (gaining)</option>
+          <option value="cut">Cut (losing)</option>
+          <option value="maintenance">Maintenance</option>
         </select>
       </div>
-      <div class="mt-4 flex gap-2">
-        <button id="analyzeBtn" class="bg-blue-600 text-white px-3 py-2 rounded-md">Analyze</button>
-        <a id="downloadBtn" class="ml-auto text-sm text-blue-600 underline hidden" href="#">Download summary</a>
+      <div class="mt-3 flex items-center gap-2">
+        <button id="analyzeBtn" class="bg-blue-600 text-white px-3 py-1 rounded text-sm">Analyze</button>
+        <a id="downloadBtn" class="hidden text-sm text-blue-600 underline" href="#">Download JSON</a>
       </div>
-    </div>
 
-    <div id="summary" class="mt-4 hidden">
-      <div class="bg-white shadow rounded-lg p-4">
-        <h2 class="font-medium">Weekly summary</h2>
+      <div id="summary" class="hidden mt-4">
+        <h2 class="font-medium">Summary</h2>
         <div id="summaryText" class="text-sm text-slate-600 mt-2"></div>
         <canvas id="chart" class="mt-4"></canvas>
+      </div>
       </div>
     </div>
 

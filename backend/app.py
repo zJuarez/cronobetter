@@ -66,6 +66,30 @@ def analyze():
     # concatenate all frames by date
     merged = pd.concat(frames, axis=0, ignore_index=True)
 
+    # optional server-side date filtering: accept ISO date strings in form fields 'start' and 'end'
+    start_str = request.form.get('start')
+    end_str = request.form.get('end')
+    start_dt = None
+    end_dt = None
+    try:
+        if start_str:
+            start_dt = pd.to_datetime(start_str, errors='coerce')
+        if end_str:
+            end_dt = pd.to_datetime(end_str, errors='coerce')
+    except Exception:
+        start_dt = None
+        end_dt = None
+    if start_dt is not None or end_dt is not None:
+        # ensure merged has __date column
+        if '__date' not in merged.columns:
+            merged['__date'] = pd.to_datetime(_parse_date_col(merged), errors='coerce').dt.tz_localize(None)
+        if start_dt is not None:
+            merged = merged[merged['__date'] >= start_dt]
+        if end_dt is not None:
+            merged = merged[merged['__date'] <= end_dt]
+        if merged.empty:
+            return jsonify({'error': 'no data in requested date range', 'detail': f'start={start_str} end={end_str}'}), 400
+
     # Coalesce possible duplicated weight/energy columns created by merging
     try:
         # find any columns containing 'weight' or 'energy' and coalesce them
@@ -105,7 +129,10 @@ def analyze():
                 'unit_override': summary.get('meta', {}).get('unit_override'),
                 'initial_days': summary.get('meta', {}).get('initial_days'),
                 'filtered_days': summary.get('meta', {}).get('filtered_days'),
-                'energy_reasons': list(set(energy_reasons))
+                'energy_reasons': list(set(energy_reasons)),
+                'goal': request.form.get('goal') or None,
+                'start': start_str or None,
+                'end': end_str or None
             }
         }
         return jsonify(lean)

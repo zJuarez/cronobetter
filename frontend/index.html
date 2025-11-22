@@ -23,15 +23,7 @@
       <input id="fileInput" type="file" accept=".csv" multiple class="mt-2" />
       <div id="fileList" class="mt-2 text-sm text-slate-600"></div>
       <div class="mt-3 text-sm text-slate-500">Select one or more CSV files (e.g. weight CSV and calories CSV). Fields expected: <code>Date</code>, <code>Weight</code>, and per-macro columns <code>Alcohol</code>, <code>Fat</code>, <code>Carbs</code>, <code>Protein</code></div>
-      <div class="mt-3 grid grid-cols-3 gap-2 items-center">
-        <div>
-          <label class="text-sm font-medium text-slate-700">Weight unit</label>
-          <select id="unitSelect" class="ml-2 border rounded p-1 text-sm">
-            <option value="auto">Auto detect</option>
-            <option value="kg">Force kg</option>
-            <option value="lb" selected>Force lb</option>
-          </select>
-        </div>
+      <div class="mt-3 grid grid-cols-2 gap-2 items-center">
         <div>
           <label class="text-sm font-medium text-slate-700">Start</label>
           <input id="startDate" type="date" class="ml-2 border rounded p-1 text-sm" />
@@ -40,15 +32,6 @@
           <label class="text-sm font-medium text-slate-700">End</label>
           <input id="endDate" type="date" class="ml-2 border rounded p-1 text-sm" />
         </div>
-      </div>
-      <div class="mt-3">
-        <label class="text-sm font-medium text-slate-700">Goal</label>
-        <select id="goalSelect" class="ml-2 border rounded p-1 text-sm">
-          <option value="auto">Auto (detect by trend)</option>
-          <option value="bulk">Bulk (gaining)</option>
-          <option value="cut">Cut (losing)</option>
-          <option value="maintenance">Maintenance</option>
-        </select>
       </div>
       <div class="mt-3 flex items-center gap-2">
         <button id="analyzeBtn" class="bg-blue-600 text-white px-3 py-1 rounded text-sm">Analyze</button>

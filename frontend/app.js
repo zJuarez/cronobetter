@@ -2,11 +2,9 @@
 const API_URL = 'http://127.0.0.1:5000/analyze';
 
 const fileInput = document.getElementById('fileInput');
-const unitSelect = document.getElementById('unitSelect');
 const fileList = document.getElementById('fileList');
-  const startDateInput = document.getElementById('startDate');
-  const endDateInput = document.getElementById('endDate');
-  const goalSelect = document.getElementById('goalSelect');
+const startDateInput = document.getElementById('startDate');
+const endDateInput = document.getElementById('endDate');
 const analyzeBtn = document.getElementById('analyzeBtn');
 const summaryDiv = document.getElementById('summary');
 const summaryText = document.getElementById('summaryText');
@@ -24,13 +22,10 @@ analyzeBtn.addEventListener('click', async () => {
   for (let i = 0; i < fileInput.files.length; i++) {
     fd.append('file', fileInput.files[i]);
   }
-  // append unit override (auto/kg/lb)
-  const unitVal = unitSelect ? unitSelect.value : 'auto';
-  fd.append('unit', unitVal);
-  // append start/end and goal if provided
+  // append start/end if provided
   if (startDateInput && startDateInput.value) fd.append('start', startDateInput.value);
   if (endDateInput && endDateInput.value) fd.append('end', endDateInput.value);
-  if (goalSelect && goalSelect.value) fd.append('goal', goalSelect.value);
+  // we assume lbs and auto-goal — do not send 'unit' or 'goal'
 
   analyzeBtn.disabled = true;
   analyzeBtn.textContent = 'Analyzing...';
@@ -100,10 +95,9 @@ analyzeBtn.addEventListener('click', async () => {
           return true;
         });
       }
-      // respect goal selection in meta shown to renderer
+      // respect server meta; assume lbs if not provided
       const meta = Object.assign({}, lastData.meta || {});
-      if(goalSelect && goalSelect.value) meta.goal = goalSelect.value;
-      if(unitSelect && unitSelect.value) meta.detected_unit = unitSelect.value === 'auto' ? (meta.detected_unit || 'lb') : unitSelect.value;
+      meta.detected_unit = meta.detected_unit || 'lb';
 
       // Recompute summary metrics for the filtered rows so summary view matches selected range
       const KCAL_PER_LB = 3500.0;
@@ -163,11 +157,9 @@ analyzeBtn.addEventListener('click', async () => {
       renderSummary(filtered);
     }
 
-    // re-render when user changes date range, goal, or unit without re-uploading files
-    if(startDateInput) startDateInput.addEventListener('change', applyFiltersAndRender);
-    if(endDateInput) endDateInput.addEventListener('change', applyFiltersAndRender);
-    if(goalSelect) goalSelect.addEventListener('change', applyFiltersAndRender);
-    if(unitSelect) unitSelect.addEventListener('change', applyFiltersAndRender);
+  // re-render when user changes date range without re-uploading files
+  if(startDateInput) startDateInput.addEventListener('change', applyFiltersAndRender);
+  if(endDateInput) endDateInput.addEventListener('change', applyFiltersAndRender);
 function renderSummary(data){
   summaryDiv.classList.remove('hidden');
   const rows = data.rows || [];

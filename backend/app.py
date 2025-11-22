@@ -130,7 +130,6 @@ def analyze():
                 'initial_days': summary.get('meta', {}).get('initial_days'),
                 'filtered_days': summary.get('meta', {}).get('filtered_days'),
                 'energy_reasons': list(set(energy_reasons)),
-                'goal': request.form.get('goal') or None,
                 'start': start_str or None,
                 'end': end_str or None
             }

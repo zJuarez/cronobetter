@@ -141,9 +141,12 @@ analyzeBtn.addEventListener('click', async () => {
         slope_kg_per_week = (detected_unit === 'lb') ? slope_in_unit_per_week * 0.45359237 : slope_in_unit_per_week;
       }
 
-      // estimate daily kcal deficit/surplus from slope in kg/week
-      const est_daily_deficit = (slope_kg_per_week != null) ? (slope_kg_per_week * KCAL_PER_KG / 7.0) : null;
-      const estimated_maintenance = (overall_avg_calories != null && est_daily_deficit != null) ? (overall_avg_calories + est_daily_deficit) : null;
+      // Compute daily kcal change from slope (positive => surplus).
+      // Match backend: daily_kcal_change = slope_kg_per_week * KCAL_PER_KG / 7
+      // est_daily_deficit = -daily_kcal_change (positive means a deficit)
+      const daily_kcal_change = (slope_kg_per_week != null) ? (slope_kg_per_week * KCAL_PER_KG / 7.0) : null;
+      const est_daily_deficit = (daily_kcal_change != null) ? -daily_kcal_change : null;
+      const estimated_maintenance = (overall_avg_calories != null && daily_kcal_change != null) ? (overall_avg_calories - daily_kcal_change) : null;
 
       const filtered = Object.assign({}, lastData, {
         rows: rows,
@@ -212,13 +215,54 @@ function renderSummary(data){
   // chart
   const ctx = document.getElementById('chart').getContext('2d');
   if(chartInstance) chartInstance.destroy();
+  const datasets = [
+    { label: `Weight (${detectedUnit})`, data: weights, yAxisID: 'y', tension:0.2, borderWidth:2, borderColor: '#1f77b4', backgroundColor: '#1f77b4', pointRadius: 3 },
+    { label: 'Calories', data: calories, yAxisID: 'y1', tension:0.15, borderWidth:2, borderColor: '#ff7f0e', backgroundColor: '#ff7f0e', pointRadius: 2 }
+  ];
+
+  // Add horizontal maintenance and overall-average lines on the kcal axis
+  const maintenanceRaw = (data.estimated_maintenance != null) ? Number(data.estimated_maintenance) : null;
+  const overallAvgRaw = (data.overall_avg_calories != null) ? Number(data.overall_avg_calories) : null;
+  if (overallAvgRaw != null) {
+    datasets.push({
+      label: 'Overall avg calories',
+      data: labels.map(() => overallAvgRaw),
+      yAxisID: 'y1',
+      borderColor: 'rgba(255,127,14,0.9)',
+      backgroundColor: 'rgba(255,127,14,0.9)',
+      borderWidth: 2,
+      pointRadius: 0,
+      borderDash: [6,4],
+      fill: false,
+      order: 3
+    });
+  }
+  if (maintenanceRaw != null) {
+    datasets.push({
+      label: 'Estimated maintenance',
+      data: labels.map(() => maintenanceRaw),
+      yAxisID: 'y1',
+      borderColor: 'rgba(34,139,34,0.95)',
+      backgroundColor: 'rgba(34,139,34,0.95)',
+      borderWidth: 2,
+      pointRadius: 0,
+      borderDash: [4,4],
+      fill: false,
+      order: 4
+    });
+  }
+
   chartInstance = new Chart(ctx, {
-    type: 'line', data: {
-      labels: labels,
-      datasets: [
-        { label: `Weight (${detectedUnit})`, data: weights, yAxisID: 'y', tension:0.2, borderWidth:2 },
-        { label: 'Calories', data: calories, yAxisID: 'y1', tension:0.2, borderWidth:2 }
-      ]
-    }, options: { responsive:true, scales: { y: { position: 'left', title:{display:true,text:detectedUnit} }, y1:{ position:'right', title:{display:true,text:'kcal'}, grid:{drawOnChartArea:false}} } }
+    type: 'line', data: { labels: labels, datasets: datasets },
+    options: {
+      responsive:true,
+      maintainAspectRatio: true,
+      interaction: { mode: 'index', intersect: false },
+      plugins: { legend: { position: 'top' } },
+      scales: {
+        y: { position: 'left', title:{display:true,text:detectedUnit}, grid: { color: 'rgba(0,0,0,0.06)' } },
+        y1:{ position:'right', title:{display:true,text:'kcal'}, grid:{drawOnChartArea:false, color: 'rgba(0,0,0,0.06)'} }
+      }
+    }
   });
 }

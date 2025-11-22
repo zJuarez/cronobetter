@@ -137,18 +137,29 @@ def compute_weekly_summary(df, unit_override=None):
             slope_kg_per_week = slope_raw_per_week
             intercept_kg = intercept_raw
 
-    est_daily_deficit = None
+    # Compute estimated daily energy change from slope (kcal/day).
+    # NOTE: `slope_kg_per_week` > 0 means weight is increasing (a daily surplus).
+    # We'll compute `daily_kcal_change` as kcal/day (positive for surplus).
+    # `est_daily_deficit` is returned as a negative number when the user is in surplus
+    # so that a positive `est_daily_deficit` indicates the user is below maintenance.
+    daily_kcal_change = None
     if slope_kg_per_week is not None:
         kcal_per_week = slope_kg_per_week * KCAL_PER_KG
-        est_daily_deficit = kcal_per_week / 7.0
+        daily_kcal_change = kcal_per_week / 7.0
+
+    # est_daily_deficit: positive => intake is below maintenance (deficit).
+    est_daily_deficit = None
+    if daily_kcal_change is not None:
+        est_daily_deficit = -daily_kcal_change
 
     overall_avg_calories = None
     if not grouped['avg_calories'].dropna().empty:
         overall_avg_calories = float(grouped['avg_calories'].dropna().mean())
 
     estimated_maintenance = None
-    if overall_avg_calories is not None and est_daily_deficit is not None:
-        estimated_maintenance = overall_avg_calories + est_daily_deficit
+    if overall_avg_calories is not None and daily_kcal_change is not None:
+        # maintenance = current intake - measured daily surplus
+        estimated_maintenance = overall_avg_calories - daily_kcal_change
 
     # predictions for next 4 weeks in raw units (same unit as input)
     predictions_raw = []

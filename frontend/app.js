@@ -10,12 +10,14 @@ let chartInstance = null;
 
 analyzeBtn.addEventListener('click', async () => {
   if (!fileInput.files || fileInput.files.length === 0) {
-    alert('Please select a CSV file');
+    alert('Please select one or more CSV files (weight and/or calories).');
     return;
   }
-  const file = fileInput.files[0];
   const fd = new FormData();
-  fd.append('file', file);
+  // append all selected files as `file` so backend receives multiple entries
+  for (let i = 0; i < fileInput.files.length; i++) {
+    fd.append('file', fileInput.files[i]);
+  }
 
   analyzeBtn.disabled = true;
   analyzeBtn.textContent = 'Analyzing...';

@@ -83,7 +83,8 @@ def compute_weekly_summary(df):
     # Heuristic: if average weight > 200 it's probably in lbs; we'll convert all weights to kg
     # safer: assume incoming weight unit is either kg or lb; we try to detect
     detected_unit = 'kg'
-    if grouped['avg_weight'].dropna().mean() > 80:  # likely in lbs
+    # Heuristic: if average reported weight is >120 it's almost certainly in pounds
+    if grouped['avg_weight'].dropna().mean() > 120:
         detected_unit = 'lb'
 
     def to_kg(w):

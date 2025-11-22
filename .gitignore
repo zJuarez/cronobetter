@@ -1,0 +1,8 @@
+backend/__pycache__/
+backend/venv/
+backend/migrations/__pycache__/
+frontend/node_modules/
+.env
+.DS_Store
+*.log
+*.sqlite3

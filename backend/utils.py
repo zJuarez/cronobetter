@@ -8,10 +8,18 @@ KCAL_PER_KG = KCAL_PER_LB / 0.45359237  # ~7700
 def compute_energy_from_macros(df):
     """Return (Series energy, reason).
 
-    Assumes macro columns in the CSV are already reported in kcal (not grams).
+    First tries to find explicit Energy/Calories column.
+    If not found, assumes macro columns in the CSV are already reported in kcal (not grams).
     Sum any available macro columns (Alcohol, Fat, Carbs, Protein) and return the
     per-row energy Series and a reason string.
     """
+    # First check for explicit Energy or Calories column
+    for col in df.columns:
+        low = col.strip().lower()
+        if low in ('energy', 'calories', 'energy (kcal)', 'calories (kcal)'):
+            return pd.to_numeric(df[col], errors='coerce'), 'explicit_energy_column'
+    
+    # If no explicit energy column, try to compute from macros
     found = {}
     for col in df.columns:
         low = col.strip().lower()

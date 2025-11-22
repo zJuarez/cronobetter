@@ -48,16 +48,14 @@ def analyze():
         if wcol is not None:
             out_df['Weight'] = pd.to_numeric(df_i[wcol], errors='coerce')
 
-        # Primary calories source: compute from macros (do not trust explicit Energy column)
+        # Primary calories source: compute from macros or explicit energy column
         energy_series, reason = compute_energy_from_macros(df_i)
-        if energy_series is None:
-            fname = getattr(f, 'filename', '<uploaded>')
-            return jsonify({'error': 'no energy/macros found', 'detail': f'File {fname} contained no macro columns to compute calories'}), 400
-        out_df['Energy'] = energy_series
-        energy_reasons.append(reason)
-        notes.append(f'Computed Energy ({reason}) from macros for file {getattr(f, "filename", "<uploaded>")})')
+        if energy_series is not None:
+            out_df['Energy'] = energy_series
+            energy_reasons.append(reason)
+            notes.append(f'Computed Energy ({reason}) from file {getattr(f, "filename", "<uploaded>")}')
 
-        # collect this file's output; we'll concat after the loop
+        # collect this file's output even if it only has weight or only has energy
         frames.append(out_df)
 
     if not frames:

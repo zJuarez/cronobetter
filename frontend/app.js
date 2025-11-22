@@ -5,77 +5,129 @@ const fileInput = document.getElementById('fileInput');
 const fileList = document.getElementById('fileList');
 const startDateInput = document.getElementById('startDate');
 const endDateInput = document.getElementById('endDate');
-const analyzeBtn = document.getElementById('analyzeBtn');
-const controlsDiv = document.getElementById('controls');
+const startDateCompact = document.getElementById('startDateCompact');
+const endDateCompact = document.getElementById('endDateCompact');
+const uploadBtn = document.getElementById('uploadBtn');
+const uploadBtnCompact = document.getElementById('uploadBtnCompact');
+const initialView = document.getElementById('initialView');
+const compactHeader = document.getElementById('compactHeader');
+const chartWrapper = document.getElementById('chartWrapper');
+const tableContainer = document.getElementById('tableContainer');
 const showTableBtn = document.getElementById('showTableBtn');
 const tableModal = document.getElementById('tableModal');
 const closeTableBtn = document.getElementById('closeTableBtn');
-const tableContainer = document.getElementById('tableContainer');
-const attachBtn = document.getElementById('attachBtn');
-const modalAttachBtn = document.getElementById('modalAttachBtn');
-const fileInputEl = document.getElementById('fileInput');
-const summaryDiv = document.getElementById('summary');
-const summaryText = document.getElementById('summaryText');
-const downloadBtn = document.getElementById('downloadBtn');
-let chartInstance = null;
 let lastData = null;
+let chartInstance = null;
 
-analyzeBtn.addEventListener('click', async () => {
-  if (!fileInput.files || fileInput.files.length === 0) {
-    alert('Please select one or more CSV files (weight and/or calories).');
+// File selection handling
+fileInput.addEventListener('change', () => {
+  const files = Array.from(fileInput.files || []);
+  if (files.length === 0) {
+    fileList.textContent = '';
+    uploadBtn.textContent = 'Upload CSV';
     return;
   }
+  
+  // Show selected files
+  fileList.innerHTML = files.map(f => `<div class="text-center text-xs">✓ ${f.name}</div>`).join('');
+  
+  // Change button text to indicate files are ready
+  uploadBtn.textContent = `Analyze (${files.length} file${files.length > 1 ? 's' : ''})`;
+  uploadBtn.classList.remove('bg-blue-600', 'hover:bg-blue-700');
+  uploadBtn.classList.add('bg-green-600', 'hover:bg-green-700');
+});
+
+// Upload button handlers - click to select files or analyze if files already selected
+uploadBtn.addEventListener('click', async () => {
+  if (!fileInput.files || fileInput.files.length === 0) {
+    fileInput.click();
+  } else {
+    await analyzeData();
+  }
+});
+
+uploadBtnCompact.addEventListener('click', () => fileInput.click());
+
+// Show/hide table modal
+showTableBtn.addEventListener('click', () => {
+  tableModal.classList.remove('hidden');
+  tableModal.classList.add('flex');
+  document.body.classList.add('overflow-hidden');
+});
+
+closeTableBtn.addEventListener('click', () => {
+  tableModal.classList.add('hidden');
+  tableModal.classList.remove('flex');
+  document.body.classList.remove('overflow-hidden');
+});
+
+// Sync date inputs between initial and compact views
+startDateInput.addEventListener('change', () => {
+  if (startDateCompact) startDateCompact.value = startDateInput.value;
+  applyFiltersAndRender();
+});
+endDateInput.addEventListener('change', () => {
+  if (endDateCompact) endDateCompact.value = endDateInput.value;
+  applyFiltersAndRender();
+});
+startDateCompact.addEventListener('change', () => {
+  if (startDateInput) startDateInput.value = startDateCompact.value;
+  applyFiltersAndRender();
+});
+endDateCompact.addEventListener('change', () => {
+  if (endDateInput) endDateInput.value = endDateCompact.value;
+  applyFiltersAndRender();
+});
+
+// Main analysis function
+async function analyzeData() {
+  if (!fileInput.files || fileInput.files.length === 0) {
+    alert('Please select one or more CSV files.');
+    return;
+  }
+  
   const fd = new FormData();
-  // append all selected files as `file` so backend receives multiple entries
   for (let i = 0; i < fileInput.files.length; i++) {
     fd.append('file', fileInput.files[i]);
   }
-  // append start/end if provided
-  if (startDateInput && startDateInput.value) fd.append('start', startDateInput.value);
-  if (endDateInput && endDateInput.value) fd.append('end', endDateInput.value);
-  // we assume lbs and auto-goal — do not send 'unit' or 'goal'
+  
+  // Get date values from current active inputs
+  const startVal = startDateInput.value || startDateCompact.value;
+  const endVal = endDateInput.value || endDateCompact.value;
+  if (startVal) fd.append('start', startVal);
+  if (endVal) fd.append('end', endVal);
 
-  analyzeBtn.disabled = true;
-  analyzeBtn.textContent = 'Analyzing...';
+  uploadBtn.disabled = true;
+  uploadBtn.textContent = 'Analyzing...';
+  uploadBtn.classList.remove('bg-green-600', 'hover:bg-green-700');
+  uploadBtn.classList.add('bg-blue-600', 'hover:bg-blue-700');
 
   try {
     const res = await fetch(API_URL, { method: 'POST', body: fd });
     const data = await res.json();
-    if (!res.ok) { throw data; }
+    if (!res.ok) throw data;
 
-    // cache the full server response and render (with any active date filters)
     lastData = data;
+    
+    // Switch to compact header view
+    initialView.classList.add('hidden');
+    compactHeader.classList.remove('hidden');
+    
+    // Sync date inputs
+    if (startDateInput.value) startDateCompact.value = startDateInput.value;
+    if (endDateInput.value) endDateCompact.value = endDateInput.value;
+    
+    // Render table
     applyFiltersAndRender();
-    // compact controls and show table; show modal attach icon later when modal opens
-    if (controlsDiv) controlsDiv.classList.add('text-xs', 'space-y-1');
-    if (showTableBtn) showTableBtn.classList.remove('hidden');
-    // keep top attachBtn visible (mobile-first), modal attach button will be shown only inside modal
-
-    // prepare download link as JSON
-    const blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
-    const url = URL.createObjectURL(blob);
-    downloadBtn.href = url; downloadBtn.download = 'summary.json'; downloadBtn.classList.remove('hidden');
 
   } catch (err) {
     console.error(err);
     alert('Analysis failed: ' + (err.detail || err.error || JSON.stringify(err)));
   } finally {
-    analyzeBtn.disabled = false;
-    analyzeBtn.textContent = 'Analyze';
+    uploadBtn.disabled = false;
+    uploadBtn.textContent = 'Upload CSV';
   }
-});
-
-  // show selected files list
-  if (fileInput && fileList) {
-    fileInput.addEventListener('change', () => {
-      const files = Array.from(fileInput.files || []);
-      if (files.length === 0) {
-        fileList.textContent = '';
-        return;
-      }
-      fileList.innerHTML = files.map(f => `<div class="py-1">• ${f.name}</div>`).join('');
-    });
-  }
+}
 
 
     // Convert a date string (YYYY-MM-DD) into ISO week key 'YYYY-Www'
@@ -94,241 +146,152 @@ analyzeBtn.addEventListener('click', async () => {
       return `${year}-W${String(week).padStart(2,'0')}`;
     }
 
-    function applyFiltersAndRender(){
-      if(!lastData) return;
-      let rows = Array.isArray(lastData.rows) ? lastData.rows.slice() : [];
-      const startKey = startDateInput && startDateInput.value ? getISOWeekKey(startDateInput.value) : null;
-      const endKey = endDateInput && endDateInput.value ? getISOWeekKey(endDateInput.value) : null;
-      if(startKey || endKey){
-        rows = rows.filter(r => {
-          if(!r.week) return false;
-          if(startKey && r.week < startKey) return false;
-          if(endKey && r.week > endKey) return false;
-          return true;
-        });
-      }
-      // respect server meta; assume lbs if not provided
-      const meta = Object.assign({}, lastData.meta || {});
-      meta.detected_unit = meta.detected_unit || 'lb';
+function applyFiltersAndRender() {
+  if (!lastData) return;
+  
+  let rows = Array.isArray(lastData.rows) ? lastData.rows.slice() : [];
+  const startVal = startDateInput.value || startDateCompact.value;
+  const endVal = endDateInput.value || endDateCompact.value;
+  const startKey = startVal ? getISOWeekKey(startVal) : null;
+  const endKey = endVal ? getISOWeekKey(endVal) : null;
+  
+  if (startKey || endKey) {
+    rows = rows.filter(r => {
+      if (!r.week) return false;
+      if (startKey && r.week < startKey) return false;
+      if (endKey && r.week > endKey) return false;
+      return true;
+    });
+  }
+  
+  const meta = Object.assign({}, lastData.meta || {});
+  meta.detected_unit = meta.detected_unit || 'lb';
+  
+  // Render the table with filtered data
+  renderTable(rows, meta);
+  
+  // Render the chart
+  renderChart(rows, meta);
+}
 
-      // Recompute summary metrics for the filtered rows so summary view matches selected range
-      const KCAL_PER_LB = 3500.0;
-      const KCAL_PER_KG = KCAL_PER_LB / 0.45359237;
+// Convert a date string (YYYY-MM-DD) into ISO week key 'YYYY-Www'
+function getISOWeekKey(dateStr) {
+  if (!dateStr) return null;
+  const d = new Date(dateStr + 'T00:00:00');
+  if (isNaN(d)) return null;
+  const target = new Date(d.valueOf());
+  const dayNr = (d.getDay() + 6) % 7;
+  target.setDate(target.getDate() - dayNr + 3);
+  const firstThursday = new Date(target.getFullYear(), 0, 4);
+  const diff = target - firstThursday;
+  const week = 1 + Math.round(diff / 86400000 / 7);
+  const year = target.getFullYear();
+  return `${year}-W${String(week).padStart(2, '0')}`;
+}
 
-      // overall average calories across filtered weeks
-      const validCal = rows.map(r => (r.avg_calories != null ? r.avg_calories : NaN)).filter(v => !Number.isNaN(v));
-      const overall_avg_calories = validCal.length ? validCal.reduce((a,b) => a + b, 0) / validCal.length : null;
-
-      // regression on avg_weight across filtered rows
-      const validWeightRows = rows.map(r => r.avg_weight).map(v => (v == null ? NaN : v));
-      const weightVals = validWeightRows.filter(v => !Number.isNaN(v));
-      let slope_in_unit_per_week = null;
-      let slope_kg_per_week = null;
-      if (weightVals.length >= 2) {
-        // simple linear regression y = m*x + c where x = 0..n-1
-        const x = [];
-        const y = [];
-        for (let i = 0; i < rows.length; i++) {
-          const w = rows[i].avg_weight;
-          if (w == null || Number.isNaN(w)) continue;
-          x.push(i);
-          y.push(w);
+function renderChart(rows, meta) {
+  if (!rows || rows.length === 0) return;
+  
+  const detectedUnit = (meta && meta.detected_unit) || 'lb';
+  const labels = rows.map(r => r.week);
+  const weights = rows.map(r => r.avg_weight);
+  const calories = rows.map(r => r.avg_calories);
+  
+  const ctx = document.getElementById('chart');
+  if (!ctx) return;
+  
+  if (chartInstance) chartInstance.destroy();
+  
+  chartInstance = new Chart(ctx.getContext('2d'), {
+    type: 'line',
+    data: {
+      labels: labels,
+      datasets: [
+        {
+          label: `Weight (${detectedUnit})`,
+          data: weights,
+          yAxisID: 'y',
+          tension: 0.2,
+          borderWidth: 2,
+          borderColor: '#3b82f6',
+          backgroundColor: '#3b82f6',
+          pointRadius: 4,
+          pointHoverRadius: 6
+        },
+        {
+          label: 'Calories',
+          data: calories,
+          yAxisID: 'y1',
+          tension: 0.2,
+          borderWidth: 2,
+          borderColor: '#f59e0b',
+          backgroundColor: '#f59e0b',
+          pointRadius: 4,
+          pointHoverRadius: 6
         }
-        if (x.length >= 2) {
-          const n = x.length;
-          const sumX = x.reduce((a,b)=>a+b,0);
-          const sumY = y.reduce((a,b)=>a+b,0);
-          const sumXY = x.reduce((s, xi, idx) => s + xi * y[idx], 0);
-          const sumX2 = x.reduce((s, xi) => s + xi * xi, 0);
-          const denom = (n * sumX2 - sumX * sumX);
-          if (denom !== 0) {
-            slope_in_unit_per_week = (n * sumXY - sumX * sumY) / denom;
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: true,
+      interaction: {
+        mode: 'index',
+        intersect: false
+      },
+      plugins: {
+        legend: {
+          position: 'top',
+          labels: {
+            font: { size: 12 },
+            padding: 15
           }
         }
-      }
-
-      // convert slope to kg/week if needed
-      const detected_unit = meta.detected_unit || (lastData.meta && lastData.meta.detected_unit) || 'lb';
-      if (slope_in_unit_per_week != null) {
-        slope_kg_per_week = (detected_unit === 'lb') ? slope_in_unit_per_week * 0.45359237 : slope_in_unit_per_week;
-      }
-
-      // Compute daily kcal change from slope (positive => surplus).
-      // Match backend: daily_kcal_change = slope_kg_per_week * KCAL_PER_KG / 7
-      // est_daily_difference is signed: positive => surplus, negative => deficit
-      const daily_kcal_change = (slope_kg_per_week != null) ? (slope_kg_per_week * KCAL_PER_KG / 7.0) : null;
-      const est_daily_difference = (daily_kcal_change != null) ? daily_kcal_change : null;
-      const estimated_maintenance = (overall_avg_calories != null && daily_kcal_change != null) ? (overall_avg_calories - daily_kcal_change) : null;
-
-      const filtered = Object.assign({}, lastData, {
-        rows: rows,
-        meta: meta,
-        slope_in_unit_per_week: slope_in_unit_per_week,
-        slope_kg_per_week: slope_kg_per_week,
-        est_daily_difference: est_daily_difference,
-        overall_avg_calories: overall_avg_calories,
-        estimated_maintenance: estimated_maintenance
-      });
-      renderSummary(filtered);
-    }
-
-    function renderTable(rows){
-      if(!rows || rows.length === 0){
-        tableContainer.innerHTML = '<div class="text-slate-500">No weekly rows to show.</div>';
-        return;
-      }
-      let html = '<div class="overflow-auto"><table class="min-w-full text-sm border-collapse">';
-      html += '<thead><tr class="text-left border-b"><th class="px-2 py-1">Week</th><th class="px-2 py-1">Avg weight</th><th class="px-2 py-1">Avg calories</th><th class="px-2 py-1">Samples</th></tr></thead>';
-      html += '<tbody>';
-      for(const r of rows){
-        html += `<tr class="border-b"><td class="px-2 py-1">${r.week}</td><td class="px-2 py-1">${r.avg_weight ?? '—'}</td><td class="px-2 py-1">${r.avg_calories ?? '—'}</td><td class="px-2 py-1">${r.samples ?? '—'}</td></tr>`;
-      }
-      html += '</tbody></table></div>';
-      tableContainer.innerHTML = html;
-    }
-
-    if(showTableBtn){
-      showTableBtn.addEventListener('click', () => {
-        renderTable(lastData ? lastData.rows : []);
-        // when modal opens, hide the top attach button and show modal attach
-        if (attachBtn) attachBtn.classList.add('hidden');
-        if (modalAttachBtn) modalAttachBtn.classList.remove('hidden');
-        tableModal.classList.remove('hidden');
-        tableModal.classList.add('flex');
-        document.body.classList.add('overflow-hidden');
-      });
-    }
-    if(closeTableBtn){
-      closeTableBtn.addEventListener('click', () => {
-        // hide modal attach and restore top attach
-        if (modalAttachBtn) modalAttachBtn.classList.add('hidden');
-        if (attachBtn) attachBtn.classList.remove('hidden');
-        tableModal.classList.add('hidden');
-        tableModal.classList.remove('flex');
-        document.body.classList.remove('overflow-hidden');
-      });
-    }
-    // wire attach button to trigger file input
-    if(attachBtn && fileInputEl){
-      attachBtn.addEventListener('click', () => fileInputEl.click());
-      if(modalAttachBtn) modalAttachBtn.addEventListener('click', () => fileInputEl.click());
-      fileInputEl.addEventListener('change', () => {
-        // when user selects new files, hide old table and reset UI so user can re-run analyze
-        lastData = null;
-        if(showTableBtn) showTableBtn.classList.add('hidden');
-        if(downloadBtn) downloadBtn.classList.add('hidden');
-        // close modal if open
-        if (tableModal && !tableModal.classList.contains('hidden')){
-          if (modalAttachBtn) modalAttachBtn.classList.add('hidden');
-          if (attachBtn) attachBtn.classList.remove('hidden');
-          tableModal.classList.add('hidden');
-          tableModal.classList.remove('flex');
-          document.body.classList.remove('overflow-hidden');
-        }
-      });
-    }
-
-  // re-render when user changes date range without re-uploading files
-  if(startDateInput) startDateInput.addEventListener('change', applyFiltersAndRender);
-  if(endDateInput) endDateInput.addEventListener('change', applyFiltersAndRender);
-function renderSummary(data){
-  summaryDiv.classList.remove('hidden');
-  const rows = data.rows || [];
-  const labels = rows.map(r => r.week);
-  const meta = data.meta || {};
-  const detectedUnit = meta.detected_unit || 'lb';
-  const energyReasons = meta.energy_reasons || [];
-
-  // display weights in the detected unit: if 'lbs' prefer raw avg_weight, else use kg
-  const weights = rows.map(r => {
-    if (detectedUnit === 'lb') return (r.avg_weight != null) ? r.avg_weight : null;
-    return (r.avg_weight_kg != null) ? r.avg_weight_kg : null;
-  });
-  const calories = rows.map(r => r.avg_calories !== null ? r.avg_calories : null);
-
-  const maintenance = data.estimated_maintenance ? Math.round(data.estimated_maintenance) : null;
-  const difference = (data.est_daily_difference != null) ? data.est_daily_difference : null;
-
-  const goal = meta.goal || 'auto';
-  // if auto, infer from slope: positive => bulk, negative => cut, ~0 => maintenance
-  let inferredGoal = goal;
-  if (inferredGoal === 'auto') {
-    const s = (data.slope_in_unit_per_week != null) ? data.slope_in_unit_per_week : data.slope_kg_per_week;
-    if (s != null) inferredGoal = (s > 0.0001) ? 'bulk' : (s < -0.0001 ? 'cut' : 'maintenance');
-  }
-
-  const diffMag = difference != null ? Math.round(Math.abs(difference)) : null;
-  const diffLabel = (difference == null) ? 'Estimated daily difference' : (difference > 0 ? 'Estimated daily surplus' : 'Estimated daily deficit');
-
-  summaryText.innerHTML = `
-    <div class="grid grid-cols-2 gap-2">
-      <div>Estimated maintenance: <strong>${maintenance ?? '—'}</strong> kcal/day</div>
-      <div>${diffLabel}: <strong>${diffMag ?? '—'}</strong> kcal/day</div>
-      <div>Slope (${detectedUnit}/week): <strong>${
-        (data.slope_in_unit_per_week == null && data.slope_kg_per_week == null) ? '—' : (
-          data.slope_in_unit_per_week != null ? Math.round(data.slope_in_unit_per_week * 100) / 100 : (
-            detectedUnit === 'lb' ? Math.round((data.slope_kg_per_week / 0.45359237) * 100) / 100 : Math.round(data.slope_kg_per_week * 100) / 100
-          )
-        )
-      }</strong></div>
-      <div>Overall avg calories: <strong>${Math.round(data.overall_avg_calories) ?? '—'}</strong></div>
-    </div>
-    <div class="mt-3 text-xs text-slate-500">
-      <!-- Meta lines intentionally removed for compact view -->
-    </div>
-  `;
-
-  // chart
-  const ctx = document.getElementById('chart').getContext('2d');
-  if(chartInstance) chartInstance.destroy();
-  const datasets = [
-    { label: `Weight (${detectedUnit})`, data: weights, yAxisID: 'y', tension:0.2, borderWidth:2, borderColor: '#1f77b4', backgroundColor: '#1f77b4', pointRadius: 3 },
-    { label: 'Calories', data: calories, yAxisID: 'y1', tension:0.15, borderWidth:2, borderColor: '#ff7f0e', backgroundColor: '#ff7f0e', pointRadius: 2 }
-  ];
-
-  // Add horizontal maintenance and overall-average lines on the kcal axis
-  const maintenanceRaw = (data.estimated_maintenance != null) ? Number(data.estimated_maintenance) : null;
-  const overallAvgRaw = (data.overall_avg_calories != null) ? Number(data.overall_avg_calories) : null;
-  if (overallAvgRaw != null) {
-    datasets.push({
-      label: 'Overall avg calories',
-      data: labels.map(() => overallAvgRaw),
-      yAxisID: 'y1',
-      borderColor: 'rgba(255,127,14,0.9)',
-      backgroundColor: 'rgba(255,127,14,0.9)',
-      borderWidth: 2,
-      pointRadius: 0,
-      borderDash: [6,4],
-      fill: false,
-      order: 3
-    });
-  }
-  if (maintenanceRaw != null) {
-    datasets.push({
-      label: 'Estimated maintenance',
-      data: labels.map(() => maintenanceRaw),
-      yAxisID: 'y1',
-      borderColor: 'rgba(34,139,34,0.95)',
-      backgroundColor: 'rgba(34,139,34,0.95)',
-      borderWidth: 2,
-      pointRadius: 0,
-      borderDash: [4,4],
-      fill: false,
-      order: 4
-    });
-  }
-
-  chartInstance = new Chart(ctx, {
-    type: 'line', data: { labels: labels, datasets: datasets },
-    options: {
-      responsive:true,
-      maintainAspectRatio: true,
-      interaction: { mode: 'index', intersect: false },
-      plugins: { legend: { position: 'top' } },
+      },
       scales: {
-        y: { position: 'left', title:{display:true,text:detectedUnit}, grid: { color: 'rgba(0,0,0,0.06)' } },
-        y1:{ position:'right', title:{display:true,text:'kcal'}, grid:{drawOnChartArea:false, color: 'rgba(0,0,0,0.06)'} }
+        y: {
+          position: 'left',
+          title: { display: true, text: detectedUnit },
+          grid: { color: 'rgba(0,0,0,0.05)' }
+        },
+        y1: {
+          position: 'right',
+          title: { display: true, text: 'kcal' },
+          grid: { drawOnChartArea: false, color: 'rgba(0,0,0,0.05)' }
+        }
       }
     }
   });
+  
+  // Show chart wrapper
+  chartWrapper.classList.remove('hidden');
+}
+
+function renderTable(rows, meta) {
+  if (!rows || rows.length === 0) {
+    tableContainer.innerHTML = '<div class="text-slate-500 text-center py-8">No weekly data to display.</div>';
+    return;
+  }
+  
+  const detectedUnit = (meta && meta.detected_unit) || 'lb';
+  
+  let html = '<table class="w-full border-collapse">';
+  html += '<thead><tr class="bg-slate-100 border-b-2 border-slate-300">';
+  html += '<th class="px-4 py-3 text-left text-sm font-semibold text-slate-700">Week</th>';
+  html += `<th class="px-4 py-3 text-left text-sm font-semibold text-slate-700">Avg Weight (${detectedUnit})</th>`;
+  html += '<th class="px-4 py-3 text-left text-sm font-semibold text-slate-700">Avg Calories</th>';
+  html += '<th class="px-4 py-3 text-left text-sm font-semibold text-slate-700">Samples</th>';
+  html += '</tr></thead>';
+  html += '<tbody>';
+  
+  for (const r of rows) {
+    html += '<tr class="border-b border-slate-200 hover:bg-slate-50">';
+    html += `<td class="px-4 py-3 text-sm font-medium text-slate-900">${r.week || '—'}</td>`;
+    html += `<td class="px-4 py-3 text-sm text-slate-700">${r.avg_weight != null ? r.avg_weight.toFixed(2) : '—'}</td>`;
+    html += `<td class="px-4 py-3 text-sm text-slate-700">${r.avg_calories != null ? Math.round(r.avg_calories) : '—'}</td>`;
+    html += `<td class="px-4 py-3 text-sm text-slate-700">${r.samples || '—'}</td>`;
+    html += '</tr>';
+  }
+  
+  html += '</tbody></table>';
+  tableContainer.innerHTML = html;
 }

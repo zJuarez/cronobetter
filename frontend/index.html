@@ -3,79 +3,105 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Cronometer Weekly — Tailwind Frontend</title>
-  <!-- Tailwind via CDN for simple GitHub Pages deployment -->
+  <title>Cronobetter</title>
   <link rel="icon" href="cronobetter-icon.svg" />
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
-<body class="bg-slate-50 text-slate-900 min-h-screen p-6 flex items-center justify-center">
-  <div class="max-w-3xl mx-auto w-full">
-    <header class="flex items-center justify-between mb-4">
-      <div class="flex items-center">
-        <img src="cronobetter-icon.svg" alt="Cronobetter icon" class="h-10 w-10 mr-3" />
-        <h1 class="text-xl font-semibold">Cronobetter Weekly</h1>
+<body class="bg-gradient-to-br from-slate-50 to-slate-100 min-h-screen flex flex-col">
+  
+  <!-- Main Content Container -->
+  <div id="mainContainer" class="flex-1 flex flex-col items-center justify-center px-6 py-12 transition-all duration-500">
+    
+    <!-- Initial Centered View (before file submission) -->
+    <div id="initialView" class="flex flex-col items-center max-w-md w-full">
+      <!-- Icon -->
+      <div class="mb-8">
+        <img src="cronobetter-icon.svg" alt="Cronobetter" class="h-24 w-24" />
       </div>
-      <div class="text-sm text-slate-500">Frontend: GitHub Pages · Backend: Flask API</div>
-    </header>
-
-    <div class="bg-white shadow rounded-lg p-4">
-      <div id="controls">
+      
+      <!-- Title (hidden initially, shown after submission) -->
+      <h1 id="mainTitle" class="text-3xl font-bold text-slate-800 mb-12 hidden">Cronobetter</h1>
+      
+      <!-- Date Filters -->
+      <div class="w-full space-y-3 mb-6">
+        <div class="flex items-center gap-3">
+          <label class="text-sm font-medium text-slate-700 w-20">Start Date</label>
+          <input id="startDate" type="date" class="flex-1 border border-slate-300 rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+        </div>
+        <div class="flex items-center gap-3">
+          <label class="text-sm font-medium text-slate-700 w-20">End Date</label>
+          <input id="endDate" type="date" class="flex-1 border border-slate-300 rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+        </div>
+      </div>
+      
+      <!-- Upload CSV / Analyze Button -->
       <input id="fileInput" type="file" accept=".csv" multiple class="hidden" />
-      <div id="fileList" class="mt-2 text-sm text-slate-600 hidden"></div>
-      <div class="mt-3 text-sm text-slate-500 hidden">Select one or more CSV files (e.g. weight CSV and calories CSV). Fields expected: <code>Date</code>, <code>Weight</code>, and per-macro columns <code>Alcohol</code>, <code>Fat</code>, <code>Carbs</code>, <code>Protein</code></div>
-      <div class="mt-3 grid grid-cols-2 gap-2 items-center">
-        <div>
-          <label class="text-sm font-medium text-slate-700">Start</label>
-          <input id="startDate" type="date" class="ml-2 border rounded p-1 text-sm" />
+      <button id="uploadBtn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6 py-3 rounded-lg shadow-lg transition-all duration-200 hover:shadow-xl">
+        Upload CSV
+      </button>
+      <div id="fileList" class="mt-3 text-sm text-slate-600 w-full"></div>
+    </div>
+
+    <!-- Compact Header (shown after file submission) -->
+    <div id="compactHeader" class="hidden w-full max-w-6xl mb-6">
+      <div class="bg-white rounded-lg shadow-md px-6 py-4 flex flex-wrap items-center gap-4">
+        <!-- Icon + Title -->
+        <div class="flex items-center gap-3">
+          <img src="cronobetter-icon.svg" alt="Cronobetter" class="h-10 w-10" />
+          <h1 class="text-xl font-bold text-slate-800">Cronobetter</h1>
         </div>
-        <div>
-          <label class="text-sm font-medium text-slate-700">End</label>
-          <input id="endDate" type="date" class="ml-2 border rounded p-1 text-sm" />
+        
+        <!-- Date Filters (Compact) -->
+        <div class="flex items-center gap-2">
+          <label class="text-xs font-medium text-slate-600">Start</label>
+          <input id="startDateCompact" type="date" class="border border-slate-300 rounded px-3 py-1 text-sm" />
         </div>
-      </div>
-      <div class="mt-3 flex flex-col sm:flex-row sm:items-center gap-2">
-        <button id="attachBtn" title="Select data" class="p-1 rounded hover:bg-slate-100 flex items-center gap-2">
-          <!-- paperclip icon -->
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-slate-600" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21.44 11.05l-9.19 9.19a6 6 0 11-8.49-8.49l8.48-8.48a4 4 0 015.66 5.66l-7.07 7.07a2 2 0 11-2.83-2.83l6.36-6.36"/></svg>
-          <span class="hidden sm:inline">Change data</span>
+        <div class="flex items-center gap-2">
+          <label class="text-xs font-medium text-slate-600">End</label>
+          <input id="endDateCompact" type="date" class="border border-slate-300 rounded px-3 py-1 text-sm" />
+        </div>
+        
+        <!-- Upload Button (Compact) -->
+        <button id="uploadBtnCompact" class="bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 py-2 rounded-lg text-sm transition-all">
+          Upload CSV
         </button>
-        <button id="analyzeBtn" class="bg-blue-600 text-white px-3 py-1 rounded text-sm">Analyze</button>
-        <a id="downloadBtn" class="hidden text-sm text-blue-600 underline" href="#">Download JSON</a>
-        <button id="showTableBtn" class="hidden text-sm text-slate-700 underline">Show table</button>
+        
+        <!-- Show Table Button -->
+        <button id="showTableBtn" class="text-blue-600 hover:text-blue-700 font-medium text-sm underline">
+          Show Table
+        </button>
       </div>
+    </div>
 
-      </div>
-
-      <div id="summary" class="hidden mt-4">
-        <h2 class="font-medium">Summary</h2>
-        <div id="summaryText" class="text-sm text-slate-600 mt-2"></div>
-        <div class="mt-4 h-96">
+    <!-- Chart Container (shown after successful analysis) -->
+    <div id="chartWrapper" class="hidden w-full max-w-6xl">
+      <div class="bg-white rounded-lg shadow-lg p-6">
+        <h2 class="text-lg font-semibold text-slate-800 mb-4">Visual Analysis</h2>
+        <div class="h-96">
           <canvas id="chart" class="w-full h-full"></canvas>
         </div>
       </div>
-      </div>
     </div>
 
-  </div>
-
-  
-  <footer class="text-center text-xs text-slate-500 mt-4">Cronobetter — Cronometer Weekly</footer>
-  <!-- Table modal -->
-  <div id="tableModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/40">
-    <div class="bg-white rounded-lg shadow-lg max-w-4xl w-[90%] max-h-[85%] overflow-auto p-4">
-      <div class="flex items-center justify-between mb-3">
-        <div class="flex items-center gap-2">
-          <h3 class="font-semibold">Weekly Data</h3>
-          <button id="modalAttachBtn" title="Change data" class="p-1 rounded hover:bg-slate-100 hidden">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-slate-600" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21.44 11.05l-9.19 9.19a6 6 0 11-8.49-8.49l8.48-8.48a4 4 0 015.66 5.66l-7.07 7.07a2 2 0 11-2.83-2.83l6.36-6.36"/></svg>
-          </button>
+    <!-- Table Modal -->
+    <div id="tableModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/50">
+      <div class="bg-white rounded-lg shadow-xl max-w-5xl w-[90%] max-h-[85%] overflow-auto p-6">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="text-lg font-semibold text-slate-800">Weekly Data</h3>
+          <button id="closeTableBtn" class="text-slate-500 hover:text-slate-700 text-2xl font-bold">&times;</button>
         </div>
-        <button id="closeTableBtn" class="text-slate-600">Close</button>
+        <div id="tableContainer" class="overflow-auto"></div>
       </div>
-      <div id="tableContainer" class="text-sm"></div>
     </div>
+    
   </div>
+
+  <!-- Footer -->
+  <footer class="text-center text-sm text-slate-500 py-6 border-t border-slate-200 bg-white/50">
+    <p>Cronobetter — Your nutrition insights companion</p>
+  </footer>
+
   <script src="app.js"></script>
 </body>
 </html>

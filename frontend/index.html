@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Cronometer Weekly — Tailwind Frontend</title>
+  <!-- Tailwind via CDN for simple GitHub Pages deployment -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="bg-slate-50 text-slate-900 min-h-screen p-6">
+  <div class="max-w-3xl mx-auto">
+    <header class="flex items-center justify-between mb-4">
+      <h1 class="text-xl font-semibold">Cronometer Weekly — Tailwind</h1>
+      <div class="text-sm text-slate-500">Frontend: GitHub Pages · Backend: Flask API</div>
+    </header>
+
+    <div class="bg-white shadow rounded-lg p-4">
+      <label class="block text-sm font-medium text-slate-700">Upload Cronometer CSV</label>
+      <input id="fileInput" type="file" accept=".csv" class="mt-2" />
+      <div class="mt-3 text-sm text-slate-500">Fields expected: <code>Date</code>, <code>Weight</code>, <code>Energy (kcal)</code></div>
+      <div class="mt-4 flex gap-2">
+        <button id="analyzeBtn" class="bg-blue-600 text-white px-3 py-2 rounded-md">Analyze</button>
+        <a id="downloadBtn" class="ml-auto text-sm text-blue-600 underline hidden" href="#">Download summary</a>
+      </div>
+    </div>
+
+    <div id="summary" class="mt-4 hidden">
+      <div class="bg-white shadow rounded-lg p-4">
+        <h2 class="font-medium">Weekly summary</h2>
+        <div id="summaryText" class="text-sm text-slate-600 mt-2"></div>
+        <canvas id="chart" class="mt-4"></canvas>
+      </div>
+    </div>
+
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

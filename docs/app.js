@@ -1,5 +1,11 @@
 // Configure this to your deployed Flask API URL
-const API_URL = 'http://127.0.0.1:5000/analyze';
+let API_URL;
+
+if (window.location.hostname === "localhost") {
+    API_URL = "http://127.0.0.1:5000/analyze";
+} else {
+    API_URL = "https://cronobetter.onrender.com/analyze";
+}
 
 const fileInput = document.getElementById('fileInput');
 const fileList = document.getElementById('fileList');

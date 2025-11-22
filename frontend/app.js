@@ -8,7 +8,7 @@ const endDateInput = document.getElementById('endDate');
 const startDateCompact = document.getElementById('startDateCompact');
 const endDateCompact = document.getElementById('endDateCompact');
 const uploadBtn = document.getElementById('uploadBtn');
-const uploadBtnCompact = document.getElementById('uploadBtnCompact');
+const newUploadBtn = document.getElementById('newUploadBtn');
 const initialView = document.getElementById('initialView');
 const compactHeader = document.getElementById('compactHeader');
 const chartWrapper = document.getElementById('chartWrapper');
@@ -46,7 +46,33 @@ uploadBtn.addEventListener('click', async () => {
   }
 });
 
-uploadBtnCompact.addEventListener('click', () => fileInput.click());
+// New Upload button - returns to main page
+newUploadBtn.addEventListener('click', () => {
+  // Reset everything
+  fileInput.value = '';
+  lastData = null;
+  if (chartInstance) chartInstance.destroy();
+  chartInstance = null;
+  
+  // Reset date filters
+  startDateInput.value = '';
+  endDateInput.value = '';
+  startDateCompact.value = '';
+  endDateCompact.value = '';
+  
+  // Reset upload button state
+  uploadBtn.textContent = 'Upload CSV';
+  uploadBtn.classList.remove('bg-green-600', 'hover:bg-green-700');
+  uploadBtn.classList.add('bg-blue-600', 'hover:bg-blue-700');
+  
+  // Clear file list
+  fileList.innerHTML = '';
+  
+  // Hide compact header and chart, show initial view
+  compactHeader.classList.add('hidden');
+  chartWrapper.classList.add('hidden');
+  initialView.classList.remove('hidden');
+});
 
 // Show/hide table modal
 showTableBtn.addEventListener('click', () => {
@@ -301,39 +327,78 @@ function renderChart(rows, meta) {
   const weights = rows.map(r => r.avg_weight);
   const calories = rows.map(r => r.avg_calories);
   
+  // Calculate stats for horizontal lines
+  const stats = calculateStats(rows, meta);
+  const maintenance = stats.estimated_maintenance;
+  const avgCalories = stats.overall_avg_calories;
+  
   const ctx = document.getElementById('chart');
   if (!ctx) return;
   
   if (chartInstance) chartInstance.destroy();
   
+  const datasets = [
+    {
+      label: `Weight (${detectedUnit})`,
+      data: weights,
+      yAxisID: 'y',
+      tension: 0.2,
+      borderWidth: 2,
+      borderColor: '#3b82f6',
+      backgroundColor: '#3b82f6',
+      pointRadius: 4,
+      pointHoverRadius: 6
+    },
+    {
+      label: 'Calories',
+      data: calories,
+      yAxisID: 'y1',
+      tension: 0.2,
+      borderWidth: 2,
+      borderColor: '#f59e0b',
+      backgroundColor: '#f59e0b',
+      pointRadius: 4,
+      pointHoverRadius: 6
+    }
+  ];
+  
+  // Add average calories line
+  if (avgCalories != null) {
+    datasets.push({
+      label: 'Avg Calories',
+      data: labels.map(() => avgCalories),
+      yAxisID: 'y1',
+      borderColor: '#f59e0b',
+      backgroundColor: '#f59e0b',
+      borderWidth: 2,
+      pointRadius: 0,
+      borderDash: [6, 4],
+      fill: false,
+      tension: 0
+    });
+  }
+  
+  // Add maintenance line
+  if (maintenance != null) {
+    datasets.push({
+      label: 'Maintenance',
+      data: labels.map(() => maintenance),
+      yAxisID: 'y1',
+      borderColor: '#10b981',
+      backgroundColor: '#10b981',
+      borderWidth: 2,
+      pointRadius: 0,
+      borderDash: [4, 4],
+      fill: false,
+      tension: 0
+    });
+  }
+  
   chartInstance = new Chart(ctx.getContext('2d'), {
     type: 'line',
     data: {
       labels: labels,
-      datasets: [
-        {
-          label: `Weight (${detectedUnit})`,
-          data: weights,
-          yAxisID: 'y',
-          tension: 0.2,
-          borderWidth: 2,
-          borderColor: '#3b82f6',
-          backgroundColor: '#3b82f6',
-          pointRadius: 4,
-          pointHoverRadius: 6
-        },
-        {
-          label: 'Calories',
-          data: calories,
-          yAxisID: 'y1',
-          tension: 0.2,
-          borderWidth: 2,
-          borderColor: '#f59e0b',
-          backgroundColor: '#f59e0b',
-          pointRadius: 4,
-          pointHoverRadius: 6
-        }
-      ]
+      datasets: datasets
     },
     options: {
       responsive: true,
@@ -378,24 +443,25 @@ function renderTable(rows, meta) {
   
   const detectedUnit = (meta && meta.detected_unit) || 'lb';
   
-  let html = '<table class="w-full border-collapse">';
+  let html = '<div class="overflow-x-auto">';
+  html += '<table class="w-full border-collapse min-w-[500px]">';
   html += '<thead><tr class="bg-slate-100 border-b-2 border-slate-300">';
-  html += '<th class="px-4 py-3 text-left text-sm font-semibold text-slate-700">Week</th>';
-  html += `<th class="px-4 py-3 text-left text-sm font-semibold text-slate-700">Avg Weight (${detectedUnit})</th>`;
-  html += '<th class="px-4 py-3 text-left text-sm font-semibold text-slate-700">Avg Calories</th>';
-  html += '<th class="px-4 py-3 text-left text-sm font-semibold text-slate-700">Samples</th>';
+  html += '<th class="px-4 sm:px-6 py-3 text-left text-xs sm:text-base font-semibold text-slate-700 whitespace-nowrap">Week</th>';
+  html += `<th class="px-4 sm:px-6 py-3 text-left text-xs sm:text-base font-semibold text-slate-700 whitespace-nowrap">Weight (${detectedUnit})</th>`;
+  html += '<th class="px-4 sm:px-6 py-3 text-left text-xs sm:text-base font-semibold text-slate-700 whitespace-nowrap">Calories</th>';
+  html += '<th class="px-4 sm:px-6 py-3 text-left text-xs sm:text-base font-semibold text-slate-700 whitespace-nowrap">Days</th>';
   html += '</tr></thead>';
   html += '<tbody>';
   
   for (const r of rows) {
     html += '<tr class="border-b border-slate-200 hover:bg-slate-50">';
-    html += `<td class="px-4 py-3 text-sm font-medium text-slate-900">${r.week || '—'}</td>`;
-    html += `<td class="px-4 py-3 text-sm text-slate-700">${r.avg_weight != null ? r.avg_weight.toFixed(2) : '—'}</td>`;
-    html += `<td class="px-4 py-3 text-sm text-slate-700">${r.avg_calories != null ? Math.round(r.avg_calories) : '—'}</td>`;
-    html += `<td class="px-4 py-3 text-sm text-slate-700">${r.samples || '—'}</td>`;
+    html += `<td class="px-4 sm:px-6 py-3 text-xs sm:text-base font-medium text-slate-900 whitespace-nowrap">${r.week || '—'}</td>`;
+    html += `<td class="px-4 sm:px-6 py-3 text-xs sm:text-base text-slate-700">${r.avg_weight != null ? r.avg_weight.toFixed(2) : '—'}</td>`;
+    html += `<td class="px-4 sm:px-6 py-3 text-xs sm:text-base text-slate-700">${r.avg_calories != null ? Math.round(r.avg_calories) : '—'}</td>`;
+    html += `<td class="px-4 sm:px-6 py-3 text-xs sm:text-base text-slate-700">${r.samples || '—'}</td>`;
     html += '</tr>';
   }
   
-  html += '</tbody></table>';
+  html += '</tbody></table></div>';
   tableContainer.innerHTML = html;
 }

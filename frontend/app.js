@@ -68,9 +68,9 @@ function renderSummary(data){
   const detectedUnit = meta.detected_unit || 'lbs';
   const energyReasons = meta.energy_reasons || [];
 
-  // display weights in the detected unit: if 'lb' prefer raw avg_weight, else use kg
+  // display weights in the detected unit: if 'lbs' prefer raw avg_weight, else use kg
   const weights = rows.map(r => {
-    if (detectedUnit === 'lb') return (r.avg_weight != null) ? r.avg_weight : null;
+    if (detectedUnit === 'lbs') return (r.avg_weight != null) ? r.avg_weight : null;
     return (r.avg_weight_kg != null) ? r.avg_weight_kg : null;
   });
   const calories = rows.map(r => r.avg_calories !== null ? r.avg_calories : null);

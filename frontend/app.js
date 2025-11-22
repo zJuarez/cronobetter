@@ -1,7 +1,9 @@
 // Configure this to your deployed Flask API URL
-const API_URL = 'https://YOUR-FLASK-APP.onrender.com/analyze';
+const API_URL = 'http://127.0.0.1:5000/analyze';
 
 const fileInput = document.getElementById('fileInput');
+const unitSelect = document.getElementById('unitSelect');
+const fileList = document.getElementById('fileList');
 const analyzeBtn = document.getElementById('analyzeBtn');
 const summaryDiv = document.getElementById('summary');
 const summaryText = document.getElementById('summaryText');
@@ -18,6 +20,9 @@ analyzeBtn.addEventListener('click', async () => {
   for (let i = 0; i < fileInput.files.length; i++) {
     fd.append('file', fileInput.files[i]);
   }
+  // append unit override (auto/kg/lb)
+  const unitVal = unitSelect ? unitSelect.value : 'auto';
+  fd.append('unit', unitVal);
 
   analyzeBtn.disabled = true;
   analyzeBtn.textContent = 'Analyzing...';
@@ -43,6 +48,18 @@ analyzeBtn.addEventListener('click', async () => {
   }
 });
 
+  // show selected files list
+  if (fileInput && fileList) {
+    fileInput.addEventListener('change', () => {
+      const files = Array.from(fileInput.files || []);
+      if (files.length === 0) {
+        fileList.textContent = '';
+        return;
+      }
+      fileList.innerHTML = files.map(f => `<div class="py-1">• ${f.name}</div>`).join('');
+    });
+  }
+
 function renderSummary(data){
   summaryDiv.classList.remove('hidden');
   const rows = data.rows || [];
@@ -52,6 +69,9 @@ function renderSummary(data){
 
   const maintenance = data.estimated_maintenance ? Math.round(data.estimated_maintenance) : null;
   const deficit = data.est_daily_deficit ? Math.round(data.est_daily_deficit) : null;
+  const meta = data.meta || {};
+  const detectedUnit = meta.detected_unit || 'auto';
+  const energyReasons = meta.energy_reasons || meta.energy_reasons || [];
 
   summaryText.innerHTML = `
     <div class="grid grid-cols-2 gap-2">
@@ -59,6 +79,10 @@ function renderSummary(data){
       <div>Estimated daily deficit: <strong>${deficit ?? '—'}</strong> kcal/day</div>
       <div>Slope (kg/week): <strong>${data.slope_kg_per_week ?? '—'}</strong></div>
       <div>Overall avg calories: <strong>${Math.round(data.overall_avg_calories) ?? '—'}</strong></div>
+    </div>
+    <div class="mt-3 text-xs text-slate-500">
+      <div>Detected weight unit: <strong>${detectedUnit}</strong> ${meta.unit_override ? '(override)' : ''}</div>
+      <div>Energy computation: <strong>${(energyReasons.length ? energyReasons.join(', ') : 'unchanged/explicit')}</strong></div>
     </div>
   `;
 

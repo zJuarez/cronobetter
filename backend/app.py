@@ -3,6 +3,7 @@ from flask_cors import CORS
 import pandas as pd
 import numpy as np
 from utils import compute_weekly_summary, _parse_date_col, _find_weight_col, _find_calories_col
+from utils import compute_energy_from_macros
 
 app = Flask(__name__)
 CORS(app)
@@ -17,9 +18,12 @@ def analyze():
     files = request.files.getlist('file')
     if not files:
         return jsonify({'error': 'file(s) missing'}), 400
-
+    print(f"Received {len(files)} files for analysis")
     merged = None
     parse_errors = []
+    notes = []
+    energy_reasons = []
+    unit_override = request.form.get('unit')
     for f in files:
         try:
             df_i = pd.read_csv(f, low_memory=False)
@@ -50,24 +54,11 @@ def analyze():
         else:
             # If there's no explicit energy column, try to compute calories
             # by summing common macro columns (Alcohol, Fat, Carbs, Protein)
-            macro_candidates = {
-                'alcohol': None,
-                'fat': None,
-                'carbs': None,
-                'carbohydrates': None,
-                'protein': None
-            }
-            present_macro_cols = []
-            for col in df_i.columns:
-                key = col.strip().lower()
-                if key in macro_candidates:
-                    present_macro_cols.append(col)
-
-            if present_macro_cols:
-                # sum the available macro columns to create an Energy column
-                # convert to numeric and sum across the row, ignoring NaNs
-                macros_numeric = df_i[present_macro_cols].apply(pd.to_numeric, errors='coerce')
-                out_df['Energy'] = macros_numeric.sum(axis=1)
+            energy_series, reason = compute_energy_from_macros(df_i)
+            if energy_series is not None:
+                out_df['Energy'] = energy_series
+                energy_reasons.append(reason)
+                notes.append(f'Computed Energy ({reason}) from macros for file {getattr(f, "filename", "<uploaded>")})')
 
         if merged is None:
             merged = out_df
@@ -80,7 +71,12 @@ def analyze():
     # normalize column names to something compute_weekly_summary will detect
     # rename 'Energy' -> any column name containing 'energy' will be found by utils
     try:
-        summary = compute_weekly_summary(merged)
+        summary = compute_weekly_summary(merged, unit_override=unit_override)
+        # attach meta about energy computation if any
+        if 'meta' not in summary:
+            summary['meta'] = {}
+        summary['meta']['energy_reasons'] = list(set(energy_reasons))
+        summary['meta']['notes'] = notes
         return jsonify(summary)
     except Exception as e:
         return jsonify({'error':'analysis failed', 'detail': str(e)}), 500

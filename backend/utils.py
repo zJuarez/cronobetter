@@ -4,6 +4,62 @@ from datetime import datetime
 
 KCAL_PER_KG = 7700.0
 
+MACRO_FACTORS = {
+    'alcohol': 7.0,
+    'fat': 9.0,
+    'carbs': 4.0,
+    'carbohydrates': 4.0,
+    'protein': 4.0,
+}
+
+def compute_energy_from_macros(df):
+    """Return a Series with estimated energy and a reason string.
+
+    Heuristic: if per-macro mean values are large (>200) assume values are kcal already.
+    Otherwise treat values as grams and convert using MACRO_FACTORS.
+    """
+    # identify macro columns
+    found = {}
+    for col in df.columns:
+        low = col.strip().lower()
+        if 'alcohol' in low:
+            found.setdefault('alcohol', []).append(col)
+        elif 'fat' in low:
+            found.setdefault('fat', []).append(col)
+        elif 'carb' in low:
+            found.setdefault('carbs', []).append(col)
+        elif 'protein' in low:
+            found.setdefault('protein', []).append(col)
+
+    if not found:
+        return None, 'no_macros'
+
+    # Sum duplicate columns for same macro if any
+    macros = {}
+    for key, cols in found.items():
+        macros[key] = df[cols].apply(pd.to_numeric, errors='coerce').sum(axis=1)
+
+    # compute mean of macro signals to decide units
+    means = [s.dropna().abs().mean() for s in macros.values()]
+    sample_mean = float(sum(means) / max(1, len(means)))
+
+    if sample_mean > 200:
+        # likely already kcal
+        energy = sum(macros.values())
+        reason = 'macros_as_kcal'
+    else:
+        # convert grams -> kcal using factors
+        energy = None
+        for key, series in macros.items():
+            factor = MACRO_FACTORS.get(key, 0)
+            if energy is None:
+                energy = series * factor
+            else:
+                energy = energy + series * factor
+        reason = 'macros_in_grams_converted'
+
+    return energy, reason
+
 def _parse_date_col(df):
     # Try to find a date-like column
     for col in df.columns:
@@ -19,7 +75,7 @@ def _find_weight_col(df):
     for col in df.columns:
         if 'weight' in col.lower():
             return col
-    return None
+    def compute_weekly_summary(df, unit_override=None):
 
 
 def _find_calories_col(df):
@@ -142,6 +198,13 @@ def compute_weekly_summary(df):
         })
 
     result = {
+
+        # meta information for front-end
+        result['meta'] = {
+            'detected_unit': detected_unit,
+            'unit_override': bool(unit_override),
+            'rows': len(rows)
+        }
         'rows': rows,
         'slope_kg_per_week': slope_kg_per_week,
         'intercept_kg': intercept_kg,

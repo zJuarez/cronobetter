@@ -6,6 +6,14 @@ const fileList = document.getElementById('fileList');
 const startDateInput = document.getElementById('startDate');
 const endDateInput = document.getElementById('endDate');
 const analyzeBtn = document.getElementById('analyzeBtn');
+const controlsDiv = document.getElementById('controls');
+const showTableBtn = document.getElementById('showTableBtn');
+const tableModal = document.getElementById('tableModal');
+const closeTableBtn = document.getElementById('closeTableBtn');
+const tableContainer = document.getElementById('tableContainer');
+const attachBtn = document.getElementById('attachBtn');
+const modalAttachBtn = document.getElementById('modalAttachBtn');
+const fileInputEl = document.getElementById('fileInput');
 const summaryDiv = document.getElementById('summary');
 const summaryText = document.getElementById('summaryText');
 const downloadBtn = document.getElementById('downloadBtn');
@@ -38,6 +46,10 @@ analyzeBtn.addEventListener('click', async () => {
     // cache the full server response and render (with any active date filters)
     lastData = data;
     applyFiltersAndRender();
+    // compact controls and show table; show modal attach icon later when modal opens
+    if (controlsDiv) controlsDiv.classList.add('text-xs', 'space-y-1');
+    if (showTableBtn) showTableBtn.classList.remove('hidden');
+    // keep top attachBtn visible (mobile-first), modal attach button will be shown only inside modal
 
     // prepare download link as JSON
     const blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
@@ -160,6 +172,62 @@ analyzeBtn.addEventListener('click', async () => {
       renderSummary(filtered);
     }
 
+    function renderTable(rows){
+      if(!rows || rows.length === 0){
+        tableContainer.innerHTML = '<div class="text-slate-500">No weekly rows to show.</div>';
+        return;
+      }
+      let html = '<div class="overflow-auto"><table class="min-w-full text-sm border-collapse">';
+      html += '<thead><tr class="text-left border-b"><th class="px-2 py-1">Week</th><th class="px-2 py-1">Avg weight</th><th class="px-2 py-1">Avg calories</th><th class="px-2 py-1">Samples</th></tr></thead>';
+      html += '<tbody>';
+      for(const r of rows){
+        html += `<tr class="border-b"><td class="px-2 py-1">${r.week}</td><td class="px-2 py-1">${r.avg_weight ?? '—'}</td><td class="px-2 py-1">${r.avg_calories ?? '—'}</td><td class="px-2 py-1">${r.samples ?? '—'}</td></tr>`;
+      }
+      html += '</tbody></table></div>';
+      tableContainer.innerHTML = html;
+    }
+
+    if(showTableBtn){
+      showTableBtn.addEventListener('click', () => {
+        renderTable(lastData ? lastData.rows : []);
+        // when modal opens, hide the top attach button and show modal attach
+        if (attachBtn) attachBtn.classList.add('hidden');
+        if (modalAttachBtn) modalAttachBtn.classList.remove('hidden');
+        tableModal.classList.remove('hidden');
+        tableModal.classList.add('flex');
+        document.body.classList.add('overflow-hidden');
+      });
+    }
+    if(closeTableBtn){
+      closeTableBtn.addEventListener('click', () => {
+        // hide modal attach and restore top attach
+        if (modalAttachBtn) modalAttachBtn.classList.add('hidden');
+        if (attachBtn) attachBtn.classList.remove('hidden');
+        tableModal.classList.add('hidden');
+        tableModal.classList.remove('flex');
+        document.body.classList.remove('overflow-hidden');
+      });
+    }
+    // wire attach button to trigger file input
+    if(attachBtn && fileInputEl){
+      attachBtn.addEventListener('click', () => fileInputEl.click());
+      if(modalAttachBtn) modalAttachBtn.addEventListener('click', () => fileInputEl.click());
+      fileInputEl.addEventListener('change', () => {
+        // when user selects new files, hide old table and reset UI so user can re-run analyze
+        lastData = null;
+        if(showTableBtn) showTableBtn.classList.add('hidden');
+        if(downloadBtn) downloadBtn.classList.add('hidden');
+        // close modal if open
+        if (tableModal && !tableModal.classList.contains('hidden')){
+          if (modalAttachBtn) modalAttachBtn.classList.add('hidden');
+          if (attachBtn) attachBtn.classList.remove('hidden');
+          tableModal.classList.add('hidden');
+          tableModal.classList.remove('flex');
+          document.body.classList.remove('overflow-hidden');
+        }
+      });
+    }
+
   // re-render when user changes date range without re-uploading files
   if(startDateInput) startDateInput.addEventListener('change', applyFiltersAndRender);
   if(endDateInput) endDateInput.addEventListener('change', applyFiltersAndRender);
@@ -206,9 +274,7 @@ function renderSummary(data){
       <div>Overall avg calories: <strong>${Math.round(data.overall_avg_calories) ?? '—'}</strong></div>
     </div>
     <div class="mt-3 text-xs text-slate-500">
-      <div>Detected weight unit: <strong>${detectedUnit}</strong> ${meta.unit_override ? '(override)' : ''}</div>
-      <div>Goal: <strong>${inferredGoal}</strong></div>
-      <div>Energy computation: <strong>${(energyReasons.length ? energyReasons.join(', ') : 'macros')}</strong></div>
+      <!-- Meta lines intentionally removed for compact view -->
     </div>
   `;
 

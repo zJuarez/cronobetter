@@ -143,9 +143,9 @@ analyzeBtn.addEventListener('click', async () => {
 
       // Compute daily kcal change from slope (positive => surplus).
       // Match backend: daily_kcal_change = slope_kg_per_week * KCAL_PER_KG / 7
-      // est_daily_deficit = -daily_kcal_change (positive means a deficit)
+      // est_daily_difference is signed: positive => surplus, negative => deficit
       const daily_kcal_change = (slope_kg_per_week != null) ? (slope_kg_per_week * KCAL_PER_KG / 7.0) : null;
-      const est_daily_deficit = (daily_kcal_change != null) ? -daily_kcal_change : null;
+      const est_daily_difference = (daily_kcal_change != null) ? daily_kcal_change : null;
       const estimated_maintenance = (overall_avg_calories != null && daily_kcal_change != null) ? (overall_avg_calories - daily_kcal_change) : null;
 
       const filtered = Object.assign({}, lastData, {
@@ -153,7 +153,7 @@ analyzeBtn.addEventListener('click', async () => {
         meta: meta,
         slope_in_unit_per_week: slope_in_unit_per_week,
         slope_kg_per_week: slope_kg_per_week,
-        est_daily_deficit: est_daily_deficit,
+        est_daily_difference: est_daily_difference,
         overall_avg_calories: overall_avg_calories,
         estimated_maintenance: estimated_maintenance
       });
@@ -179,7 +179,7 @@ function renderSummary(data){
   const calories = rows.map(r => r.avg_calories !== null ? r.avg_calories : null);
 
   const maintenance = data.estimated_maintenance ? Math.round(data.estimated_maintenance) : null;
-  const deficit = (data.est_daily_deficit != null) ? data.est_daily_deficit : null;
+  const difference = (data.est_daily_difference != null) ? data.est_daily_difference : null;
 
   const goal = meta.goal || 'auto';
   // if auto, infer from slope: positive => bulk, negative => cut, ~0 => maintenance
@@ -189,13 +189,13 @@ function renderSummary(data){
     if (s != null) inferredGoal = (s > 0.0001) ? 'bulk' : (s < -0.0001 ? 'cut' : 'maintenance');
   }
 
-  const deficitMag = deficit != null ? Math.round(Math.abs(deficit)) : null;
-  const deficitLabel = (inferredGoal === 'bulk') ? 'Estimated daily surplus' : 'Estimated daily deficit';
+  const diffMag = difference != null ? Math.round(Math.abs(difference)) : null;
+  const diffLabel = (difference == null) ? 'Estimated daily difference' : (difference > 0 ? 'Estimated daily surplus' : 'Estimated daily deficit');
 
   summaryText.innerHTML = `
     <div class="grid grid-cols-2 gap-2">
       <div>Estimated maintenance: <strong>${maintenance ?? '—'}</strong> kcal/day</div>
-      <div>${deficitLabel}: <strong>${deficitMag ?? '—'}</strong> kcal/day</div>
+      <div>${diffLabel}: <strong>${diffMag ?? '—'}</strong> kcal/day</div>
       <div>Slope (${detectedUnit}/week): <strong>${
         (data.slope_in_unit_per_week == null && data.slope_kg_per_week == null) ? '—' : (
           data.slope_in_unit_per_week != null ? Math.round(data.slope_in_unit_per_week * 100) / 100 : (

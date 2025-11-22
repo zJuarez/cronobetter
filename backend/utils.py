@@ -147,10 +147,11 @@ def compute_weekly_summary(df, unit_override=None):
         kcal_per_week = slope_kg_per_week * KCAL_PER_KG
         daily_kcal_change = kcal_per_week / 7.0
 
-    # est_daily_deficit: positive => intake is below maintenance (deficit).
-    est_daily_deficit = None
+    # est_daily_difference: positive => intake is above maintenance (surplus),
+    # negative => intake is below maintenance (deficit).
+    est_daily_difference = None
     if daily_kcal_change is not None:
-        est_daily_deficit = -daily_kcal_change
+        est_daily_difference = daily_kcal_change
 
     overall_avg_calories = None
     if not grouped['avg_calories'].dropna().empty:
@@ -194,7 +195,7 @@ def compute_weekly_summary(df, unit_override=None):
         'intercept_raw': intercept_raw,
         'slope_kg_per_week': slope_kg_per_week,
         'intercept_kg': intercept_kg,
-        'est_daily_deficit': est_daily_deficit,
+        'est_daily_difference': est_daily_difference,
         'overall_avg_calories': overall_avg_calories,
         'estimated_maintenance': estimated_maintenance,
         'predicted_in_4w_unit': predictions_raw,

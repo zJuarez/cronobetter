@@ -119,7 +119,7 @@ def analyze():
         lean = {
             'rows': summary.get('rows', []),
             'estimated_maintenance': summary.get('estimated_maintenance'),
-            'est_daily_deficit': summary.get('est_daily_deficit'),
+            'est_daily_difference': summary.get('est_daily_difference'),
             # frontend expects 'slope_in_unit_per_week' key; populate from raw slope
             'slope_in_unit_per_week': summary.get('slope_raw_per_week') or summary.get('slope_in_unit_per_week'),
             'slope_kg_per_week': summary.get('slope_kg_per_week'),

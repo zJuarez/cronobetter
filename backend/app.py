@@ -19,7 +19,7 @@ def analyze():
     if not files:
         return jsonify({'error': 'file(s) missing'}), 400
     print(f"Received {len(files)} files for analysis")
-    merged = None
+    frames = []
     parse_errors = []
     notes = []
     energy_reasons = []
@@ -41,38 +41,36 @@ def analyze():
         df_i['__date'] = pd.to_datetime(date_series, errors='coerce').dt.tz_localize(None)
         df_i = df_i.dropna(subset=['__date'])
 
-        # detect weight or calories columns and keep only date + detected column
+        # detect weight column and keep date + weight
         wcol = _find_weight_col(df_i)
-        ccol = _find_calories_col(df_i)
 
-        out_cols = ['__date']
         out_df = df_i[['__date']].copy()
         if wcol is not None:
             out_df['Weight'] = pd.to_numeric(df_i[wcol], errors='coerce')
-        if ccol is not None:
-            out_df['Energy'] = pd.to_numeric(df_i[ccol], errors='coerce')
-        else:
-            # If there's no explicit energy column, try to compute calories
-            # by summing common macro columns (Alcohol, Fat, Carbs, Protein)
-            energy_series, reason = compute_energy_from_macros(df_i)
-            if energy_series is not None:
-                out_df['Energy'] = energy_series
-                energy_reasons.append(reason)
-                notes.append(f'Computed Energy ({reason}) from macros for file {getattr(f, "filename", "<uploaded>")})')
 
-        if merged is None:
-            merged = out_df
-        else:
-            merged = pd.merge(merged, out_df, on='__date', how='outer')
+        # Primary calories source: compute from macros (do not trust explicit Energy column)
+        energy_series, reason = compute_energy_from_macros(df_i)
+        if energy_series is None:
+            fname = getattr(f, 'filename', '<uploaded>')
+            return jsonify({'error': 'no energy/macros found', 'detail': f'File {fname} contained no macro columns to compute calories'}), 400
+        out_df['Energy'] = energy_series
+        energy_reasons.append(reason)
+        notes.append(f'Computed Energy ({reason}) from macros for file {getattr(f, "filename", "<uploaded>")})')
 
-    if merged is None or merged.empty:
+        # collect this file's output; we'll concat after the loop
+        frames.append(out_df)
+
+    if not frames:
         return jsonify({'error': 'no valid data parsed', 'detail': parse_errors}), 400
+
+    # concatenate all frames by date
+    merged = pd.concat(frames, axis=0, ignore_index=True)
 
     # Coalesce possible duplicated weight/energy columns created by merging
     try:
         # find any columns containing 'weight' or 'energy' and coalesce them
         weight_cols = [c for c in merged.columns if 'weight' in c.lower()]
-        energy_cols = [c for c in merged.columns if 'energy' in c.lower() or 'kcal' in c.lower() or 'calorie' in c.lower()]
+        energy_cols = [c for c in merged.columns if 'energy' in c.lower()]
 
         def coalesce_numeric(df, cols):
             if not cols:
@@ -92,13 +90,25 @@ def analyze():
             merged = merged.drop(columns=drop_cols)
 
         summary = compute_weekly_summary(merged, unit_override=unit_override)
-        # attach meta about energy computation if any
-        if 'meta' not in summary:
-            summary['meta'] = {}
-        summary['meta']['energy_reasons'] = list(set(energy_reasons))
-        summary['meta']['notes'] = notes
-        summary['meta']['parse_errors'] = parse_errors
-        return jsonify(summary)
+
+        # Build a lean response for the frontend: only keep fields the frontend uses.
+        lean = {
+            'rows': summary.get('rows', []),
+            'estimated_maintenance': summary.get('estimated_maintenance'),
+            'est_daily_deficit': summary.get('est_daily_deficit'),
+            # frontend expects 'slope_in_unit_per_week' key; populate from raw slope
+            'slope_in_unit_per_week': summary.get('slope_raw_per_week') or summary.get('slope_in_unit_per_week'),
+            'slope_kg_per_week': summary.get('slope_kg_per_week'),
+            'overall_avg_calories': summary.get('overall_avg_calories'),
+            'meta': {
+                'detected_unit': summary.get('meta', {}).get('detected_unit'),
+                'unit_override': summary.get('meta', {}).get('unit_override'),
+                'initial_days': summary.get('meta', {}).get('initial_days'),
+                'filtered_days': summary.get('meta', {}).get('filtered_days'),
+                'energy_reasons': list(set(energy_reasons))
+            }
+        }
+        return jsonify(lean)
     except ValueError as ve:
         # expected user/data error (e.g., no valid days after filtering)
         return jsonify({'error': 'bad input', 'detail': str(ve), 'notes': notes, 'parse_errors': parse_errors}), 400

@@ -64,20 +64,31 @@ function renderSummary(data){
   summaryDiv.classList.remove('hidden');
   const rows = data.rows || [];
   const labels = rows.map(r => r.week);
-  const weights = rows.map(r => r.avg_weight_kg !== null ? r.avg_weight_kg : null);
+  const meta = data.meta || {};
+  const detectedUnit = meta.detected_unit || 'lbs';
+  const energyReasons = meta.energy_reasons || [];
+
+  // display weights in the detected unit: if 'lb' prefer raw avg_weight, else use kg
+  const weights = rows.map(r => {
+    if (detectedUnit === 'lb') return (r.avg_weight != null) ? r.avg_weight : null;
+    return (r.avg_weight_kg != null) ? r.avg_weight_kg : null;
+  });
   const calories = rows.map(r => r.avg_calories !== null ? r.avg_calories : null);
 
   const maintenance = data.estimated_maintenance ? Math.round(data.estimated_maintenance) : null;
   const deficit = data.est_daily_deficit ? Math.round(data.est_daily_deficit) : null;
-  const meta = data.meta || {};
-  const detectedUnit = meta.detected_unit || 'auto';
-  const energyReasons = meta.energy_reasons || meta.energy_reasons || [];
 
   summaryText.innerHTML = `
     <div class="grid grid-cols-2 gap-2">
       <div>Estimated maintenance: <strong>${maintenance ?? '—'}</strong> kcal/day</div>
       <div>Estimated daily deficit: <strong>${deficit ?? '—'}</strong> kcal/day</div>
-      <div>Slope (kg/week): <strong>${data.slope_kg_per_week ?? '—'}</strong></div>
+      <div>Slope (${detectedUnit}/week): <strong>${
+        (data.slope_in_unit_per_week == null && data.slope_kg_per_week == null) ? '—' : (
+          data.slope_in_unit_per_week != null ? Math.round(data.slope_in_unit_per_week * 100) / 100 : (
+            detectedUnit === 'lb' ? Math.round((data.slope_kg_per_week / 0.45359237) * 100) / 100 : Math.round(data.slope_kg_per_week * 100) / 100
+          )
+        )
+      }</strong></div>
       <div>Overall avg calories: <strong>${Math.round(data.overall_avg_calories) ?? '—'}</strong></div>
     </div>
     <div class="mt-3 text-xs text-slate-500">
@@ -93,9 +104,9 @@ function renderSummary(data){
     type: 'line', data: {
       labels: labels,
       datasets: [
-        { label: 'Weight (kg)', data: weights, yAxisID: 'y', tension:0.2, borderWidth:2 },
+        { label: `Weight (${detectedUnit})`, data: weights, yAxisID: 'y', tension:0.2, borderWidth:2 },
         { label: 'Calories', data: calories, yAxisID: 'y1', tension:0.2, borderWidth:2 }
       ]
-    }, options: { responsive:true, scales: { y: { position: 'left', title:{display:true,text:'kg'} }, y1:{ position:'right', title:{display:true,text:'kcal'}, grid:{drawOnChartArea:false}} } }
+    }, options: { responsive:true, scales: { y: { position: 'left', title:{display:true,text:detectedUnit} }, y1:{ position:'right', title:{display:true,text:'kcal'}, grid:{drawOnChartArea:false}} } }
   });
 }
